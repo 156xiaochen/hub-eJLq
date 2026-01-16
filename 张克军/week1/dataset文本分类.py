@@ -39,7 +39,7 @@ nb_model.fit(input_feature, dataset[1])
 #大预言模型 llm
 qw_client = OpenAI(
     #自己生气的api_key
-    api_key="sk-7a14b640740744a1823fd321997e229a",
+    api_key="sk-7a14b640xxxxx97e229a",
     # 大模型厂商的地址，阿里云
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
 

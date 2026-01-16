@@ -48,7 +48,7 @@ model = KNeighborsClassifier()
 model.fit(input_feature, dataset[1].values)
 
 client = OpenAI(
-    api_key="sk-b220c23d00d84424a07f2cf000e48920",
+    api_key="sk-b220c23xxxxf000e48920",
     # 大模型厂商的地址，阿里云
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )

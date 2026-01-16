@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsClassifier
 import jieba
 from openai import  OpenAI
 client = OpenAI(
-    api_key='sk-564e35ed920249dca6dabec807394428',
+    api_key='sk-564e35xxxxx807394428',
     base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
 )
 dataset = pd.read_csv("dataset.csv", sep="\t", header=None)

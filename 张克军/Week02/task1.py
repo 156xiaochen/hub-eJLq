@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
 # ... (Data loading and preprocessing remains the same) ...
-dataset = pd.read_csv("../week1/dataset.csv",encoding="utf-8", sep="\t", header=None)
+dataset = pd.read_csv("../Week01/dataset.csv", encoding="utf-8", sep="\t", header=None)
 texts = dataset[0].tolist()
 string_labels = dataset[1].tolist()
 

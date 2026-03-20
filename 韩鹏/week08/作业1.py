@@ -4,7 +4,7 @@ import openai
 
 # 初始化客户端（请替换为你的有效 API Key 和 Base URL）
 client = openai.OpenAI(
-    api_key="sk-f0ab3fca58044adcb75b5a60974549b3",  # 替换为实际密钥
+    api_key="sk-f0abuabu58044adcb75b5a60974549b3",  # 替换为实际密钥
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

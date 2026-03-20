@@ -1,0 +1,81 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional
+import openai
+import json
+
+# 初始化客户端
+client = openai.OpenAI(
+    api_key="your-api-key-here",        
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",  # 阿里云百炼地址
+)
+
+class ExtractionAgent:
+    """基于函数调用的结构化信息抽取智能体"""
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    def call(self, user_prompt, response_model):
+        messages = [{"role": "user", "content": user_prompt}]
+        
+        # 根据 Pydantic 模型动态生成工具描述
+        schema = response_model.model_json_schema()
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": schema.get("title", response_model.__name__),
+                    "description": schema.get("description", ""),
+                    "parameters": {
+                        "type": "object",
+                        "properties": schema["properties"],
+                        "required": schema.get("required", []),
+                    },
+                }
+            }
+        ]
+
+        response = client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+        )
+
+        try:
+            arguments = response.choices[0].message.tool_calls[0].function.arguments
+            return response_model.model_validate_json(arguments)
+        except (AttributeError, IndexError, KeyError, json.JSONDecodeError) as e:
+            print("解析失败：", response.choices[0].message)
+            return None
+
+# ========== 定义翻译任务的信息模型 ==========
+class TranslationRequest(BaseModel):
+    """根据用户输入提取翻译任务信息，包括原始语种、目标语种和待翻译文本。"""
+    source_language: str = Field(
+        description="原始语种，如'中文'、'英文'等，如果用户未指定则自动识别"
+    )
+    target_language: str = Field(
+        description="目标语种，如'英文'、'法文'等"
+    )
+    text: str = Field(
+        description="需要翻译的文本内容"
+    )
+
+# ========== 测试示例 ==========
+if __name__ == "__main__":
+    agent = ExtractionAgent(model_name="qwen-plus")  
+
+    # 示例1：明确指定语种
+    user_input1 = "把‘hello world’翻译成中文"
+    result1 = agent.call(user_input1, TranslationRequest)
+    print("示例1结果：", result1)
+
+    # 示例2：仅提供文本，让模型自动识别原始语种
+    user_input2 = "翻译这段话：Bonjour, comment allez-vous？"
+    result2 = agent.call(user_input2, TranslationRequest)
+    print("示例2结果：", result2)
+
+    # 示例3：复杂指令，包含多语言混合
+    user_input3 = "请将‘今天天气真好’翻译为英文，并告诉我原文是什么语种"
+    result3 = agent.call(user_input3, TranslationRequest)
+    print("示例3结果：", result3)

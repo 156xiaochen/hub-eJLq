@@ -1,0 +1,440 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: 应用-体脂健康建议
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.34@a3a90f3034b884bb215b8770af24ecd6145cfd5b6ab97f9e40c3143cbe3ccd34
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: code
+      id: 1750247789086-source-1750247864708-target
+      source: '1750247789086'
+      sourceHandle: source
+      target: '1750247864708'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: llm
+      id: 1750247864708-source-1750248183676-target
+      source: '1750247864708'
+      sourceHandle: source
+      target: '1750248183676'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: template-transform
+      id: 1750248183676-source-1750248311782-target
+      source: '1750248183676'
+      sourceHandle: source
+      target: '1750248311782'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: template-transform
+        targetType: end
+      id: 1750248311782-source-1750248397090-target
+      selected: false
+      source: '1750248311782'
+      sourceHandle: source
+      target: '1750248397090'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 性别
+          max_length: 48
+          options:
+          - 男
+          - 女
+          required: true
+          type: select
+          variable: sex
+        - default: ''
+          hint: ''
+          label: 年龄
+          options: []
+          placeholder: ''
+          required: true
+          type: number
+          variable: age
+        - label: 身高（cm）
+          max_length: 48
+          options: []
+          required: true
+          type: number
+          variable: height
+        - label: 体重（kg）
+          max_length: 48
+          options: []
+          required: true
+          type: number
+          variable: weight
+      height: 186
+      id: '1750247789086'
+      position:
+        x: -183.0645430117861
+        y: 247.18645441556407
+      positionAbsolute:
+        x: -183.0645430117861
+        y: 247.18645441556407
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "def main(sex: str, height: int, weight: int, age: int) -> dict:\n \
+          \   # 计算 BMI\n    bmi = weight / ((height / 100) ** 2)\n    \n    # 根据性别计算体脂率（加入年龄因素）\n\
+          \    if sex == '男':\n        body_fat_percentage = (1.20 * bmi) + (0.23\
+          \ * age) - 16.2\n    else:\n        body_fat_percentage = (1.20 * bmi) +\
+          \ (0.23 * age) - 5.4\n    \n    # 确保体脂率在合理范围内\n    if body_fat_percentage\
+          \ < 5:\n        body_fat_percentage = 5\n    elif body_fat_percentage >\
+          \ 45:\n        body_fat_percentage = 45\n    \n    # 年龄分组\n    if age <\
+          \ 18:\n        age_group = \"青少年\"\n        age_advice = \"处于生长发育期，保证营养均衡，适度运动\"\
+          \n    elif age < 35:\n        age_group = \"青年\"\n        age_advice = \"\
+          新陈代谢旺盛，适合进行高强度间歇训练\"\n    elif age < 55:\n        age_group = \"中年\"\n \
+          \       age_advice = \"注意保持肌肉量，预防骨质疏松，建议有氧运动\"\n    else:\n        age_group\
+          \ = \"老年\"\n        age_advice = \"注意关节保护，选择温和运动如快走、游泳\"\n    \n    # 体脂率评估（考虑年龄因素）\n\
+          \    if sex == '男':\n        if age < 35:\n            ideal_low, ideal_high\
+          \ = 8, 20\n        elif age < 55:\n            ideal_low, ideal_high = 10,\
+          \ 22\n        else:\n            ideal_low, ideal_high = 12, 25\n    else:\n\
+          \        if age < 35:\n            ideal_low, ideal_high = 18, 28\n    \
+          \    elif age < 55:\n            ideal_low, ideal_high = 20, 30\n      \
+          \  else:\n            ideal_low, ideal_high = 22, 33\n    \n    # 判断体脂率状态\n\
+          \    if body_fat_percentage < ideal_low:\n        status = \"偏瘦\"\n    \
+          \    advice = \"建议增加优质蛋白摄入，适当进行力量训练\"\n    elif body_fat_percentage > ideal_high:\n\
+          \        status = \"偏胖\"\n        advice = \"建议控制热量摄入，增加有氧运动频率\"\n    else:\n\
+          \        status = \"标准\"\n        advice = \"体脂率标准，继续保持健康生活方式\"\n    \n\
+          \    # 返回结果\n    return {\n        \"bmi\": round(bmi, 1),\n        \"body_fat_percentage\"\
+          : round(body_fat_percentage, 1),\n        \"status\": status,\n        \"\
+          age_group\": age_group,\n        \"age_advice\": age_advice,\n        \"\
+          advice\": advice,\n        \"ideal_range\": f\"{ideal_low}%-{ideal_high}%\"\
+          \n    }"
+        code_language: python3
+        desc: ''
+        outputs:
+          advice:
+            children: null
+            type: string
+          age_advice:
+            children: null
+            type: string
+          age_group:
+            children: null
+            type: string
+          bmi:
+            children: null
+            type: number
+          body_fat_percentage:
+            children: null
+            type: number
+          ideal_range:
+            children: null
+            type: string
+          status:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1750247789086'
+          - sex
+          variable: sex
+        - value_selector:
+          - '1750247789086'
+          - height
+          variable: height
+        - value_selector:
+          - '1750247789086'
+          - weight
+          variable: weight
+        - value_selector:
+          - '1750247789086'
+          - age
+          value_type: number
+          variable: age
+      height: 51
+      id: '1750247864708'
+      position:
+        x: 73.36480653342699
+        y: 379.4195354778084
+      positionAbsolute:
+        x: 73.36480653342699
+        y: 379.4195354778084
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params: {}
+          mode: chat
+          name: qwen3.5-flash
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: f3024c0a-017c-4519-96d8-a53a4e2a62c5
+          role: system
+          text: 你是营养专家，请结合用户的体脂比状态给出有效的建议。
+        - id: f78173fa-6b4e-4f0b-9728-b39614a2d899
+          role: user
+          text: '性别：{{#1750247789086.sex#}}
+
+            年龄     {{#1750247789086.age#}}}
+
+            身高：{{#1750247789086.height#}}
+
+            体重：{{#1750247789086.weight#}}
+
+            体脂比：{{#1750247864708.body_fat_percentage#}}'
+        - id: 97c2db6e-eda4-4275-848e-fa0907abfdaf
+          role: assistant
+          text: ''
+        selected: true
+        structured_output_enabled: false
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 87
+      id: '1750248183676'
+      position:
+        x: 129.87195621113148
+        y: 690.0164307798485
+      positionAbsolute:
+        x: 129.87195621113148
+        y: 690.0164307798485
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        desc: ''
+        selected: false
+        template: '【个人基本信息】
+
+          性别：{{sex}}
+
+          年龄：{{age}} 岁
+
+          身高：{{height}} cm
+
+          体重：{{weight}} kg
+
+
+          【身体指标】
+
+          BMI指数：{{bmi}}
+
+          体脂率：{{body_fat_percentage}}%（{{status}}）
+
+          年龄段：{{age_group}}
+
+          理想体脂率范围：{{ideal_range}}
+
+          {{age_advice}}
+
+
+          【基础建议】
+
+          {{advice}}
+
+
+          请根据以上信息，结合我的年龄（{{age}}岁）和体脂情况，提供详细的个性化健康建议，包括：
+
+          1. 适合我年龄段的运动建议
+
+          2. 饮食调整建议
+
+          3. 需要注意的健康事项
+
+          4. 健康改善目标'
+        title: 模板转换
+        type: template-transform
+        variables:
+        - value_selector:
+          - '1750247789086'
+          - height
+          variable: height
+        - value_selector:
+          - '1750247789086'
+          - weight
+          variable: weight
+        - value_selector:
+          - '1750247864708'
+          - body_fat_percentage
+          value_type: number
+          variable: body_fat_percentage
+        - value_selector:
+          - '1750248183676'
+          - text
+          variable: text
+        - value_selector:
+          - '1750247789086'
+          - sex
+          variable: sex
+        - value_selector:
+          - '1750247789086'
+          - age
+          value_type: number
+          variable: age
+        - value_selector:
+          - '1750247864708'
+          - bmi
+          value_type: number
+          variable: bmi
+        - value_selector:
+          - '1750247864708'
+          - status
+          value_type: string
+          variable: status
+        - value_selector:
+          - '1750247864708'
+          - age_group
+          value_type: string
+          variable: age_group
+        - value_selector:
+          - '1750247864708'
+          - age_advice
+          value_type: string
+          variable: age_advice
+        - value_selector:
+          - '1750247864708'
+          - advice
+          value_type: string
+          variable: advice
+        - value_selector:
+          - '1750247864708'
+          - ideal_range
+          value_type: string
+          variable: ideal_range
+      height: 51
+      id: '1750248311782'
+      position:
+        x: 438.92825677832127
+        y: 330.04384838007303
+      positionAbsolute:
+        x: 438.92825677832127
+        y: 330.04384838007303
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - '1750248311782'
+          - output
+          variable: output
+        selected: false
+        title: 结束
+        type: end
+      height: 87
+      id: '1750248397090'
+      position:
+        x: 507
+        y: 431
+      positionAbsolute:
+        x: 507
+        y: 431
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+    viewport:
+      x: 90.81395851298004
+      y: -129.40505695573694
+      zoom: 0.7168933611665739
+  rag_pipeline_variables: []

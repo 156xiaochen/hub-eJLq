@@ -1,0 +1,214 @@
+app:
+  description: 意图识别+RAG问答（机器学习/大模型双知识库）
+  icon: 🧠
+  icon_background: '#E8F4F8'
+  mode: workflow
+  name: 意图识别-RAG问答
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.2.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      source: 'start'
+      target: 'intent-llm'
+    - data:
+        sourceType: llm
+        targetType: condition
+      source: 'intent-llm'
+      target: 'condition'
+    - data:
+        sourceType: condition
+        targetType: llm
+      source: 'condition'
+      target: 'default-llm'
+      sourceHandle: output_1
+    - data:
+        sourceType: condition
+        targetType: retriever
+      source: 'condition'
+      target: 'ml-retriever'
+      sourceHandle: output_2
+    - data:
+        sourceType: condition
+        targetType: retriever
+      source: 'condition'
+      target: 'llm-retriever'
+      sourceHandle: output_3
+    - data:
+        sourceType: retriever
+        targetType: llm
+      source: 'ml-retriever'
+      target: 'rag-llm'
+    - data:
+        sourceType: retriever
+        targetType: llm
+      source: 'llm-retriever'
+      target: 'rag-llm'
+    - data:
+        sourceType: llm
+        targetType: template-transform
+      source: 'default-llm'
+      target: 'template'
+    - data:
+        sourceType: llm
+        targetType: template-transform
+      source: 'rag-llm'
+      target: 'template'
+    - data:
+        sourceType: template-transform
+        targetType: end
+      source: 'template'
+      target: 'end'
+    nodes:
+    # 1. 开始节点
+    - data:
+        title: 开始
+        type: start
+        variables:
+        - label: 用户提问
+          required: true
+          type: text
+          variable: user_question
+      id: 'start'
+      type: custom
+    # 2. 意图识别LLM
+    - data:
+        title: 意图识别
+        type: llm
+        model:
+          completion_params:
+            temperature: 0.1
+          mode: chat
+          name: qwen3-0.6b  # 模型名
+          provider: langgenius/tongyi/tongyi  # 提供商
+        prompt_template:
+        - role: system
+          text: |
+            仅返回数字：1=非机器学习/非大模型，2=机器学习，3=大模型
+        - role: user
+          text: '{{#start.user_question#}}'
+      id: 'intent-llm'
+      type: custom
+    # 3. 条件分支
+    - data:
+        title: 意图分支
+        type: condition
+        conditions:
+        - label: 意图1
+          logic: '{{#intent-llm.text#}} == "1"'
+          output: output_1
+        - label: 意图2
+          logic: '{{#intent-llm.text#}} == "2"'
+          output: output_2
+        - label: 意图3
+          logic: '{{#intent-llm.text#}} == "3"'
+          output: output_3
+      id: 'condition'
+      type: custom
+    # 4. 兜底LLM
+    - data:
+        title: 通用问答LLM
+        type: llm
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-0.6b
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - role: system
+          text: 友好回答日常问题
+        - role: user
+          text: '{{#start.user_question#}}'
+      id: 'default-llm'
+      type: custom
+    # 5. 机器学习知识库检索
+    - data:
+        title: 机器学习知识库检索
+        type: retriever
+        query: '{{#start.user_question#}}'
+        retriever_resource_configs:
+        - identifier: 机器学习知识库  # 知识库名
+          top_k: 5
+      id: 'ml-retriever'
+      type: custom
+    # 6. 大模型知识库检索
+    - data:
+        title: 大模型知识库检索
+        type: retriever
+        query: '{{#start.user_question#}}'
+        retriever_resource_configs:
+        - identifier: 大模型知识库  # 知识库名
+          top_k: 5
+      id: 'llm-retriever'
+      type: custom
+    # 7. RAG回答LLM
+    - data:
+        title: RAG回答LLM
+        type: llm
+        context:
+          enabled: true
+          variable_selector: ['ml-retriever', 'llm-retriever']
+        model:
+          completion_params:
+            temperature: 0.3
+          mode: chat
+          name: qwen3-0.6b
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - role: system
+          text: 基于检索结果准确回答，无相关内容则说明“未检索到”
+        - role: user
+          text: '{{#start.user_question#}}'
+      id: 'rag-llm'
+      type: custom
+    # 8. 模板转换
+    - data:
+        title: 输出模板
+        type: template-transform
+        template: |
+          ## 用户提问：{{ user_question }}
+          ## 回答：{{ text }}
+        variables:
+        - value_selector: ['start', 'user_question']
+          variable: user_question
+        - value_selector: ['default-llm', 'text']
+          variable: text
+        - value_selector: ['rag-llm', 'text']
+          variable: text
+      id: 'template'
+      type: custom
+    # 9. 结束节点
+    - data:
+        title: 结束
+        type: end
+        outputs:
+        - value_selector: ['template', 'output']
+          variable: output
+      id: 'end'
+      type: custom
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1.0

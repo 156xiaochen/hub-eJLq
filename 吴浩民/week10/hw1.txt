@@ -1,0 +1,78 @@
+from PIL import Image
+import torch
+from transformers import ChineseCLIPProcessor, ChineseCLIPModel
+from sklearn.preprocessing import normalize
+import numpy as np
+
+def clip_zero_shot_classification(image_path, labels):
+    """
+    使用CLIP模型进行zero shot分类
+    
+    Args:
+        image_path: 图片路径
+        labels: 分类标签列表
+    
+    Returns:
+        分类结果列表
+    """
+    # 加载模型和处理器
+    print("加载CLIP模型...")
+    # 使用用户提供的模型路径
+    model_path = "D:\study\八斗学院\正式课\代码\周课\models\AI-ModelScope\chinese-clip-vit-base-patch16"
+    model = ChineseCLIPModel.from_pretrained(model_path)
+    processor = ChineseCLIPProcessor.from_pretrained(model_path)
+    
+    # 加载并处理图片
+    print("处理图片...")
+    image = Image.open(image_path)
+    image_inputs = processor(images=image, return_tensors="pt")
+    
+    # 获取图片特征
+    with torch.no_grad():
+        image_features = model.get_image_features(**image_inputs)
+        image_features = image_features.data.numpy()
+        image_features = normalize(image_features)
+    
+    # 处理文本标签
+    print("处理文本标签...")
+    text_inputs = processor(text=labels, return_tensors="pt", padding=True)
+    
+    # 获取文本特征
+    with torch.no_grad():
+        text_features = model.get_text_features(**text_inputs)
+        text_features = text_features.data.numpy()
+        text_features = normalize(text_features)
+    
+    # 计算相似度
+    print("计算相似度...")
+    similarities = np.dot(image_features, text_features.T)[0]
+    
+    # 获取分类结果
+    result = {}
+    for i, label in enumerate(labels):
+        result[label] = float(similarities[i])
+    
+    # 排序结果
+    sorted_result = sorted(result.items(), key=lambda x: x[1], reverse=True)
+    
+    return sorted_result
+
+if __name__ == "__main__":
+    # 图片路径 - 用户需要根据实际情况修改
+    image_path = "dog.png"  # 假设狗图文件名是dog.jpg
+    
+    # 分类标签
+    labels = ["狗", "猫", "鸟", "兔子", "熊"]
+    
+    # 执行分类
+    print("开始CLIP zero shot分类...")
+    result = clip_zero_shot_classification(image_path, labels)
+    
+    # 输出结果
+    print("\n分类结果:")
+    for label, score in result:
+        print(f"{label}: {score:.4f}")
+    
+    # 输出最佳分类
+    best_label, best_score = result[0]
+    print(f"\n最佳分类: {best_label} (相似度: {best_score:.4f})")

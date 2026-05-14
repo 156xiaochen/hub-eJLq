@@ -1,0 +1,112 @@
+import os
+from langchain_community.vectorstores import Chroma
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import TextLoader  # 以文本为例，可替换为PDF等
+
+# ======================
+# 1. 配置百炼平台 (Bailian) 客户端
+# ======================
+os.environ["OPENAI_API_KEY"] = "sk-f93947fa16c24dec83ce5f0cc7aac348" # API Key
+os.environ["OPENAI_BASE_URL"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# 初始化 LLM 模型 (使用 qwen-plus)
+llm = ChatOpenAI(
+    model="qwen-plus", 
+    temperature=0,
+   
+)
+
+# ======================
+# 2. 模拟本地知识库构建 (In-Memory 示例)
+# ======================
+# 读取本地的 PDF、Word 或 TXT 文件
+"""
+sample_text = 
+我们的旗舰产品是“云灵”智能助手，专为企业级客户提供服务。
+“云灵”支持多语言交互，包括中文、英文和日文。
+它能够帮助企业自动化处理客服、文档分析和数据查询等任务。
+最新版本 V2.5 增加了实时翻译和语音合成功能。
+该产品基于阿里云百炼大模型平台开发，具备极高的安全性和稳定性。
+...
+"""
+
+# 2.1 文档加载与分割
+# 也可以使用 PDFPlumberLoader 或 UnstructuredFileLoader
+loader = TextLoader("sample.txt", encoding="utf-8") 
+
+from langchain_core.documents import Document
+docs = [Document(page_content=sample_text, metadata={"source": "product_manual.txt"})]
+
+# 使用文本分割器
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+split_docs = text_splitter.split_documents(docs)
+
+# 2.2 创建向量存储 (Chroma)
+# 这里使用内存模式，实际生产建议持久化到磁盘
+vectorstore = Chroma.from_documents(
+    documents=split_docs, 
+    embedding=OpenAIEmbeddings() # 使用 OpenAI 的 Embedding
+)
+retriever = vectorstore.as_retriever(k=2) # 检索最相似的 2 个片段
+
+# ======================
+# 3. 构建 RAG 链 (检索+生成)
+# ======================
+
+# 3.1 定义 Prompt 模板
+# 这个模板告诉 LLM 如何利用检索到的上下文来回答问题
+rag_prompt = ChatPromptTemplate.from_messages([
+    ("system", """
+     你是一个专业的问答助手。
+     请根据以下检索到的文档片段来回答用户的问题。
+     如果文档中没有相关信息，请回答“抱歉，根据现有文档无法回答该问题。”
+     
+     【参考文档片段】:
+     {context}
+     
+     【回答要求】:
+     - 语言: 中文
+     - 语气: 专业、简洁
+     - 如果引用了文档，请在句末标注来源文件名。
+    """),
+    ("human", "{question}"),
+])
+
+# 3.2 定义检索与生成链
+# RunnablePassthrough.assign 负责将检索到的文本注入到 Prompt 中
+def format_docs(documents):
+    """将检索到的文档列表格式化为字符串"""
+    return "\n\n".join([f"来源: {doc.metadata['source']}\n内容: {doc.page_content}" for doc in documents])
+
+rag_chain = (
+    {
+        "context": retriever | format_docs, # 检索并格式化
+        "question": RunnablePassthrough() # 原样传递用户问题
+    }
+    | rag_prompt 
+    | llm
+    | StrOutputParser() # 输出解析为字符串
+)
+
+# ======================
+# 4. 测试问答
+# ======================
+if __name__ == "__main__":
+    questions = [
+        "我们的旗舰产品是什么？",
+        "云灵支持哪些功能？",
+        "百炼平台使用了什么技术？",
+        "今天天气怎么样？" # 这个问题在文档中没有，应该触发默认回复
+    ]
+
+    for q in questions:
+        print(f"\n--- 🤖 用户提问: {q}")
+        try:
+            response = rag_chain.invoke(q)
+            print(f"--- ✅ AI 回答: {response}")
+        except Exception as e:
+            print(f"--- ❌ 错误: {str(e)}")

@@ -1,0 +1,146 @@
+import akshare as ak
+import pandas as pd
+import plotly.graph_objects as go
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate
+import os
+
+# ======================
+# 1. 配置 LLM (使用阿里云百炼)
+# ======================
+os.environ["OPENAI_API_KEY"] = "sk-f93947fa16c24dec83ce5f0cc7aac348" # API_Key
+os.environ["OPENAI_BASE_URL"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+llm = ChatOpenAI(model="qwen-plus", temperature=0)
+
+# ======================
+# 2. 定义股票分析与绘图技能
+# ======================
+
+@tool
+def analyze_stock_visual(symbol: str) -> str:
+    """
+    分析股票的周波动与日波动，并绘制可视化图表。
+    输入参数:
+        symbol: 股票代码 (例如: '000001' 代表平安银行)
+    返回:
+        包含买卖建议的文本以及生成的图表文件路径。
+    """
+    print(f"🔍 正在获取股票 {symbol} 的数据...")
+    
+    try:
+        # 1. 获取历史行情数据 (日频)
+        # 使用 akshare 获取 A 股历史数据
+        df = ak.stock_zh_a_hist(symbol=symbol, period="daily", start_date="20230101", adjust="qfq")
+        
+        if df.empty:
+            return f"❌ 未找到股票 {symbol} 的数据，请检查代码是否正确。"
+
+        # 2. 数据预处理
+        df['日期'] = pd.to_datetime(df['日期'])
+        df.set_index('日期', inplace=True)
+        df.rename(columns={'收盘': 'Close', '开盘': 'Open', '最高': 'High', '最低': 'Low', '成交量': 'Volume'}, inplace=True)
+        
+        # 计算技术指标 (用于买卖建议)
+        df['MA5'] = df['Close'].rolling(window=5).mean()
+        df['MA10'] = df['Close'].rolling(window=10).mean()
+        df['MA20'] = df['Close'].rolling(window=20).mean()
+        
+        # 3. 生成周线数据 (用于叠加显示大周期趋势)
+        # 将日线数据重采样为周线
+        weekly_df = df.resample('W').agg({
+            'Open': 'first',
+            'High': 'max',
+            'Low': 'min',
+            'Close': 'last',
+            'Volume': 'sum'
+        }).dropna()
+
+        # 4. 决策逻辑 (基于均线简单策略)
+        last_close = df['Close'].iloc[-1]
+        last_ma5 = df['MA5'].iloc[-1]
+        last_ma10 = df['MA10'].iloc[-1]
+        
+        advice = ""
+        signal_color = "gray"
+        
+        if last_ma5 > last_ma10:
+            advice = "【买入建议】当前短期均线(MA5)上穿长期均线(MA10)，呈现多头排列趋势，建议关注买入机会。"
+            signal_color = "green"
+        elif last_ma5 < last_ma10:
+            advice = "【卖出建议】当前短期均线(MA5)下穿长期均线(MA10)，呈现空头排列趋势，建议考虑卖出或观望。"
+            signal_color = "red"
+        else:
+            advice = "【持有建议】当前趋势震荡不明朗，建议继续持有或观望。"
+            signal_color = "orange"
+
+        # 5. 可视化绘图 (Plotly)
+        fig = go.Figure()
+
+        # A. 添加日 K 线 (主图，不透明)
+        fig.add_trace(go.Candlestick(
+            x=df.index,
+            open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+            name='日K线',
+            increasing_line_color='red', decreasing_line_color='green' # A股红涨绿跌
+        ))
+
+        # B. 添加周 K 线 (副图，半透明叠加，展示大周期)
+        fig.add_trace(go.Candlestick(
+            x=weekly_df.index,
+            open=weekly_df['Open'], high=weekly_df['High'], low=weekly_df['Low'], close=weekly_df['Close'],
+            name='周K线(大周期)',
+            opacity=0.3, # 透明度
+            increasing_line_color='rgba(255, 0, 0, 0.3)', 
+            decreasing_line_color='rgba(0, 255, 0, 0.3)'
+        ))
+
+        # C. 添加均线
+        fig.add_trace(go.Scatter(x=df.index, y=df['MA5'], line=dict(color='blue', width=1), name='MA5'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['MA10'], line=dict(color='orange', width=1), name='MA10'))
+
+        # 布局设置
+        fig.update_layout(
+            title=f'📈 {symbol} 股票走势分析 (日K+周K叠加)',
+            yaxis_title='价格 (CNY)',
+            xaxis_title='日期',
+            height=600,
+            template='plotly_dark',
+            xaxis_rangeslider_visible=False
+        )
+
+        # 保存图表
+        file_name = f"stock_chart_{symbol}.html"
+        fig.write_html(file_name)
+        
+        result_text = f"{advice}\n\n📊 详细走势图已生成: {file_name}"
+        return result_text
+
+    except Exception as e:
+        return f"❌ 分析过程中发生错误: {str(e)}"
+
+# ======================
+# 3. 构建智能体
+# ======================
+
+tools = [analyze_stock_visual]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一个专业的股票分析助手。你擅长通过可视化技术分析股票走势。当用户询问股票时，请务必调用绘图工具来展示日线和周线的对比，并给出具体的买卖建议。"),
+    ("human", "{input}"),
+])
+
+agent = create_tool_calling_agent(llm, tools, prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# ======================
+# 4. 运行测试
+# ======================
+if __name__ == "__main__":
+    user_query = "帮我分析一下平安银行(000001)的走势，我想看看最近是不是买入的好时机？"
+    print(f"🤖 用户: {user_query}")
+    
+    response = agent_executor.invoke({"input": user_query})
+    print(f"✅ 助手: {response['output']}")
